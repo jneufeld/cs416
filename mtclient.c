@@ -14,26 +14,25 @@
 
 #define BAD_ARGS    1
 #define SOCKET_ERR  2
-#define BIND_ERR    3
+#define CONNECT_ERR 3
 
 int main(int argc, char **argv)
 {
     /* Rough check for valid arguments */
     if(argc != 3)
     {
-        printf("usage: mtserver MAX_CONNECTIONS SERVER_PORT\n");
+        printf("usage: mtclient HOST_IP PORT\n");
         exit(BAD_ARGS);
     }
 
     /* Construct addrinfo structs */
-    struct addrinfo *server_info;
+    struct addrinfo *result;
     struct addrinfo hints;
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
-    hints.ai_flags = AI_PASSIVE;
 
     /* Exit if unable to get ip info */
-    int setup_status = getaddrinfo(NULL, argv[2], &hints, &server_info);
+    int setup_status = getaddrinfo(argv[1], argv[2], &hints, &result);
 
     if(setup_status != 0)
     {
@@ -42,9 +41,9 @@ int main(int argc, char **argv)
     }
 
     /* Exit if unable to acquire socket */
-    int sockfd = socket(server_info->ai_family,
-        server_info->ai_socktype,
-        server_info->ai_protocol);
+    int sockfd = socket(result->ai_family,
+        result->ai_socktype,
+        result->ai_protocol);
 
     if(sockfd < 0)
     {
@@ -53,31 +52,18 @@ int main(int argc, char **argv)
     }
 
     /* Exit if unable to acquire port */
-    int bind_result = bind(sockfd,
-        server_info->ai_addr,
-        server_info->ai_addrlen);
+    int connect_result = connect(sockfd,
+        result->ai_addr,
+        result->ai_addrlen);
 
-    if(bind_result < 0)
+    if(connect_result < 0)
     {
-        printf("ERROR: Could not bind socket to port\n");
-        exit(BIND_ERR);
+        printf("ERROR: Could not connect to %s on %s\n", argv[1], argv[2]);
+        exit(CONNECT_ERR);
     }
 
-    /* Do work ;) */
-    int max_clients = atoi(argv[1]);
-    listen(sockfd, max_clients);
-
-    struct sockaddr *client_sock;
-    int client_addr_sz = sizeof(client_sock);
-    printf("client_addr_sz = %d\n", client_addr_sz);
-    int new_fd = accept(sockfd, client_sock, &client_addr_sz);
-
-    while(1)
-    {
-    }
-
-    close(sockfd);
-    freeaddrinfo(server_info);
+    freeaddrinfo(result);
 
     return 0;
 }
+
