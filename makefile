@@ -1,4 +1,4 @@
-metserver:
+mtserver:
 	gcc -Wall -o mtserver mtserver.c
 
 clean:
