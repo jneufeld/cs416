@@ -8,13 +8,18 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
+#include <string.h>
 
-#define BAD_ARGS    1
-#define SOCKET_ERR  2
-#define BIND_ERR    3
+#define BAD_ARGS        1
+#define SOCKET_ERR      2
+#define SOCK_SETUP_ERR  3
+#define BIND_ERR        4
+#define RECV_FLAGS      0
+#define BUF_LEN         16
 
 int main(int argc, char **argv)
 {
@@ -28,6 +33,8 @@ int main(int argc, char **argv)
     /* Construct addrinfo structs */
     struct addrinfo *server_info;
     struct addrinfo hints;
+
+    memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_flags = AI_PASSIVE;
@@ -37,8 +44,8 @@ int main(int argc, char **argv)
 
     if(setup_status != 0)
     {
-        printf("socket setup error: %s\n", gai_strerror(setup_status));
-        exit(1);
+        printf("ERROR: Socket setup error (%s)\n", gai_strerror(setup_status));
+        exit(SOCK_SETUP_ERR);
     }
 
     /* Exit if unable to acquire socket */
@@ -67,15 +74,22 @@ int main(int argc, char **argv)
     int max_clients = atoi(argv[1]);
     listen(sockfd, max_clients);
 
-    struct sockaddr *client_sock;
-    int client_addr_sz = sizeof(client_sock);
-    printf("client_addr_sz = %d\n", client_addr_sz);
-    int new_fd = accept(sockfd, client_sock, &client_addr_sz);
+    struct sockaddr_storage client_sock;
+    socklen_t client_addr_sz = sizeof(client_sock);
 
-    while(1)
+    for(;;)
     {
+        int new_fd = accept(sockfd,
+            (struct sockaddr *)&client_sock,
+            &client_addr_sz);
+        printf("New connection: %d\n", new_fd);
+
+        char buf[BUF_LEN];
+        int rcv_result = recv(new_fd, (void *)buf, BUF_LEN, RECV_FLAGS);
+        printf("\tRecv length: %d\n\tMessage: %s\n", rcv_result, buf);
     }
 
+    /* Cleanup */
     close(sockfd);
     freeaddrinfo(server_info);
 
