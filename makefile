@@ -1,8 +1,5 @@
 mtserver:
-	gcc -Wall -o mtserver mtserver.c
-
-mtclient:
-	gcc -Wall -o mtclient mtclient.c
+	gcc -Wall -o mtserver mtserver.c -lpthread
 
 clean:
-	rm -f mtserver mtclient
+	rm -f mtserver
