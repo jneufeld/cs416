@@ -113,36 +113,10 @@ void serve(int sockfd, int max_clients)
         int new_fd = accept(sockfd,
             (struct sockaddr *)&client_sock,
             &client_addr_sz);
+
+        pthread_t thread;
+        pthread_create(&thread, NULL, &worker, &new_fd);
     }
-
-    //char buf[BUF_LEN];
-    //char temp_buf[BUF_LEN];
-    //int buf_pos = 0;
-
-    //int i;
-    //for(i = 0; i < 5; i++)
-    //{
-    //    /* Receive from client */
-    //    int rcv_result = recv(new_fd, (void *)temp_buf, BUF_LEN, RECV_FLAGS);
-
-    //    /* Exit if receive failed */
-    //    if(rcv_result < 0)
-    //    {
-    //        printf("ERROR: Received -1 bytes\n");
-    //        exit(-1);
-    //    }
-
-    //    /* Copy message into buffer for analysis */
-    //    strncpy(buf + buf_pos, temp_buf, rcv_result);
-    //    printf("\tRecv length: %d\n\tMessage: %s\n", rcv_result, buf);
-    //    buf_pos += rcv_result;
-
-    //    /* Send something back */
-    //    void *msg = (void *) uptime();
-    //    int send_result = send(new_fd, &msg, RESPONSE_SIZE, SEND_FLAGS);
-
-    //    printf("\tsend_result = %d\n\n", send_result);
-    //}
 }
 
 int uptime()
@@ -152,7 +126,67 @@ int uptime()
     return info.uptime;
 }
 
+int load()
+{
+    return 1;
+}
+
 void *worker(void *arg)
 {
+    int *arg_ptr = (int *) arg;
+    int sockfd = *arg_ptr;
+
+    char buf[BUF_LEN];
+    char temp_buf[BUF_LEN];
+    int buf_pos = 0;
+
+    int i;
+    for(i = 0; i < 5; i++)
+    {
+        int rcv_result = recv(sockfd, (void *)temp_buf, BUF_LEN, RECV_FLAGS);
+
+        if(rcv_result < 0)
+        {
+            printf("ERROR: T%d Received -1 bytes\n", sockfd);
+            exit(-1);
+        }
+
+        strncpy(buf + buf_pos, temp_buf, rcv_result);
+        buf_pos += rcv_result;
+        printf("\t[T%d] Message: %s\n", sockfd, buf);
+
+        int request = parse_request(buf, buf_pos);
+
+        void *msg = NULL;
+        if(request == REQ_UPTIME)
+            msg = (void *) uptime();
+        else if(request == REQ_LOAD)
+            msg = (void *) load();
+        else if(request == REQ_EXIT)
+            msg = (void *) 0;
+
+        send(sockfd, &msg, RESPONSE_SIZE, SEND_FLAGS);
+
+        if(request == REQ_EXIT)
+            break;
+    }
+
+    close(sockfd);
     return NULL;
+}
+
+int parse_request(char *buffer, int last_byte)
+{
+    int i;
+    for(i = 0; i < last_byte - 1; i++)
+    {
+        if(strncmp(buffer + i, "uptime", last_byte - i) == 0)
+            return REQ_UPTIME;
+        else if(strncmp(buffer + i, "load", last_byte - i) == 0)
+            return REQ_LOAD;
+        else if(strncmp(buffer + i, "exit", last_byte - i) == 0)
+            return REQ_EXIT;
+    }
+
+    return 0;
 }
