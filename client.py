@@ -307,8 +307,8 @@ v, v2 = -2, -2
 try:
   sock.sendall("xl")
   r = sock.recv(4)
-  r2 = sock.recv(4)
   v = struct.unpack("i", r)[0]
+  r2 = sock.recv(4)
   if r2:
     v2 = struct.unpack("i", r2)[0]
 except socket.timeout:
@@ -330,9 +330,21 @@ try:
 except socket.timeout:
   print "TEST 2.7: receive timed out"
 if v == -1:
-  print "TEST 2.7: OK... first x correctly received -1 return value"
+  print "TEST 2.7: OK... first x after l correctly received -1 return value"
 else:
-  print "TEST 2.7: ERROR... first x didn't receive -1 return value"
+  print "TEST 2.7: ERROR... first x after l didn't receive -1 return value"
+v = -2
+try:
+  sock.sendall("x")
+  r = sock.recv(4)
+  if r:
+    v = struct.unpack("i", r)[0]
+except:
+  pass
+if v == -1:
+  print "TEST 2.7: OK... second x after l correctly received -1 return value"
+else:
+  print "TEST 2.7: ERROR... second x after l didn't receive -1 return value"
 v = -2
 try:
   sock.sendall("x")
@@ -342,9 +354,9 @@ try:
 except:
   pass
 if v == -2:
-  print "TEST 2.7: OK... connection is correctly closed"
+  print "TEST 2.7: OK... connection is correctly closed after xlxx"
 else:
-  print "TEST 2.7: ERROR... connection didn't correctly closed, got back a value of " + str(v)
+  print "TEST 2.7: ERROR... connection didn't correctly close after xlxx, got back a value of " + str(v)
 
 sock.close()
 # Multi-connection tests
@@ -413,6 +425,7 @@ else:
 map(lambda s: s.close(), socks)
 socks = map(lambda ign: new_sock(), range(3))
 socks[0].sendall("exit")
+time.sleep(0.1)
 socks[1].sendall("load")
 socks[2].sendall("load")
 v, v2, v3 = -2, -2, -2

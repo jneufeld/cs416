@@ -117,6 +117,8 @@ void serve(int sockfd, int max_clients)
         pthread_t thread;
         pthread_create(&thread, NULL, &worker, &new_fd);
     }
+
+    printf("o_O\n");
 }
 
 int uptime()
@@ -139,9 +141,9 @@ void *worker(void *arg)
     char buf[BUF_LEN];
     char temp_buf[BUF_LEN];
     int buf_pos = 0;
+    int mistakes = 0;
 
-    int i;
-    for(i = 0; i < 5; i++)
+    for(;;)
     {
         int rcv_result = recv(sockfd, (void *)temp_buf, BUF_LEN, RECV_FLAGS);
 
@@ -150,20 +152,50 @@ void *worker(void *arg)
             printf("ERROR: T%d Received -1 bytes\n", sockfd);
             exit(-1);
         }
+        else if(mistakes >= MAX_MISTAKES)
+        {
+            void *msg = (void *) -1;
+            send(sockfd, &msg, RESPONSE_SIZE, SEND_FLAGS);
+            break;
+        }
 
         strncpy(buf + buf_pos, temp_buf, rcv_result);
         buf_pos += rcv_result;
-        printf("\t[T%d] Message: %s\n", sockfd, buf);
+        printf("[T%d] Message: %s\n", sockfd, buf);
 
         int request = parse_request(buf, buf_pos);
 
         void *msg = NULL;
         if(request == REQ_UPTIME)
+        {
+            printf("[T%d] UPTIME\n", sockfd);
             msg = (void *) uptime();
+            clean_buffer(buf);
+            buf_pos = 0;
+            mistakes = 0;
+        }
         else if(request == REQ_LOAD)
+        {
+            printf("[T%d] LOAD\n", sockfd);
             msg = (void *) load();
+            clean_buffer(buf);
+            buf_pos = 0;
+            mistakes = 0;
+        }
         else if(request == REQ_EXIT)
+        {
+            printf("[T%d] EXIT\n", sockfd);
             msg = (void *) 0;
+            clean_buffer(buf);
+            buf_pos = 0;
+            mistakes = 0;
+        }
+        else
+        {
+            printf("[T%d] MISTAKE\n", sockfd);
+            msg = (void *) -1;
+            mistakes++;
+        }
 
         send(sockfd, &msg, RESPONSE_SIZE, SEND_FLAGS);
 
@@ -186,7 +218,16 @@ int parse_request(char *buffer, int last_byte)
             return REQ_LOAD;
         else if(strncmp(buffer + i, "exit", last_byte - i) == 0)
             return REQ_EXIT;
+        else if(strncmp(buffer + i, "\x03", last_byte - i) == 0)
+            return REQ_EXIT;
     }
 
-    return 0;
+    return REQ_GARBAGE;
+}
+
+void clean_buffer(char *buffer)
+{
+    int i;
+    for(i = 0; i < BUF_LEN; i++)
+        buffer[i] = '\0';
 }
