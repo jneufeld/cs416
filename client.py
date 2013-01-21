@@ -166,6 +166,8 @@ else:
   print "TEST 2.1: Didn't time out"
 
 # (2)
+sock.close()
+sock = new_sock()
 
 time.sleep(0.001)
 v = -2

@@ -145,23 +145,17 @@ void *worker(void *arg)
 
     for(;;)
     {
-        int rcv_result = recv(sockfd, (void *)temp_buf, BUF_LEN, RECV_FLAGS);
+        int rcv_result = recv(sockfd, (void *) temp_buf, BUF_LEN, RECV_FLAGS);
 
         if(rcv_result < 0)
         {
             printf("ERROR: T%d Received -1 bytes\n", sockfd);
             exit(-1);
         }
-        else if(mistakes >= MAX_MISTAKES)
-        {
-            void *msg = (void *) -1;
-            send(sockfd, &msg, RESPONSE_SIZE, SEND_FLAGS);
-            break;
-        }
 
         strncpy(buf + buf_pos, temp_buf, rcv_result);
         buf_pos += rcv_result;
-        printf("[T%d] Message: %s\n", sockfd, buf);
+        printf("[T%d] Received: %s\n", sockfd, buf);
 
         int request = parse_request(buf, buf_pos);
 
@@ -171,6 +165,7 @@ void *worker(void *arg)
             printf("[T%d] UPTIME\n", sockfd);
             msg = (void *) uptime();
             clean_buffer(buf);
+            clean_buffer(temp_buf);
             buf_pos = 0;
             mistakes = 0;
         }
@@ -179,27 +174,33 @@ void *worker(void *arg)
             printf("[T%d] LOAD\n", sockfd);
             msg = (void *) load();
             clean_buffer(buf);
+            clean_buffer(temp_buf);
             buf_pos = 0;
             mistakes = 0;
         }
         else if(request == REQ_EXIT)
         {
-            printf("[T%d] EXIT\n", sockfd);
+            printf("[T%d] EXIT 0\n", sockfd);
             msg = (void *) 0;
+        }
+        else if(request == REQ_PROGRESS)
+        {
+            printf("[T%d] Potential valid request in progress\n", sockfd);
+        }
+        else if(request == REQ_GARBAGE)
+        {
+            mistakes++;
+            printf("[T%d] GARBAGE -1\n", sockfd);
+            msg = (void *) -1;
             clean_buffer(buf);
+            clean_buffer(temp_buf);
             buf_pos = 0;
             mistakes = 0;
-        }
-        else
-        {
-            printf("[T%d] MISTAKE\n", sockfd);
-            msg = (void *) -1;
-            mistakes++;
         }
 
         send(sockfd, &msg, RESPONSE_SIZE, SEND_FLAGS);
 
-        if(request == REQ_EXIT)
+        if(request == REQ_EXIT || mistakes >= MAX_MISTAKES)
             break;
     }
 
@@ -207,22 +208,56 @@ void *worker(void *arg)
     return NULL;
 }
 
-int parse_request(char *buffer, int last_byte)
+int parse_request(char *buffer, int buffer_size)
 {
-    int i;
-    for(i = 0; i < last_byte - 1; i++)
+    if(buffer[0] == 'u')
     {
-        if(strncmp(buffer + i, "uptime", last_byte - i) == 0)
+        int result = message_progress(buffer, "uptime", buffer_size);
+
+        if(result == REQ_VALID)
             return REQ_UPTIME;
-        else if(strncmp(buffer + i, "load", last_byte - i) == 0)
+        else
+            return REQ_PROGRESS;
+    }
+    else if(buffer[0] == 'l')
+    {
+        int result = message_progress(buffer, "load", buffer_size);
+
+        if(result == REQ_VALID)
             return REQ_LOAD;
-        else if(strncmp(buffer + i, "exit", last_byte - i) == 0)
+        else
+            return REQ_PROGRESS;
+    }
+    else if(buffer[0] == 'e')
+    {
+        int result = message_progress(buffer, "exit", buffer_size);
+
+        if(result == REQ_VALID)
             return REQ_EXIT;
-        else if(strncmp(buffer + i, "\x03", last_byte - i) == 0)
-            return REQ_EXIT;
+        else
+            return REQ_PROGRESS;
     }
 
     return REQ_GARBAGE;
+}
+
+int message_progress(char *buffer, const char *str, int buffer_size)
+{
+    int len = min(strlen(str), buffer_size);
+    int i;
+
+    for(i = 0; i < len; i++)
+    {
+        if(buffer[i] != str[i])
+            return REQ_GARBAGE;
+    }
+
+    return (buffer_size == len) ? REQ_VALID : REQ_PROGRESS;
+}
+
+int min(int arg1, int arg2)
+{
+    return (arg1 < arg2) ? arg1 : arg2;
 }
 
 void clean_buffer(char *buffer)

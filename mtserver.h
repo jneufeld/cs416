@@ -30,11 +30,13 @@
 #define RESPONSE_SIZE   4
 #define MAX_MISTAKES    2
 
-#define REQ_NOREQ       0
-#define REQ_UPTIME      1
-#define REQ_LOAD        2
-#define REQ_EXIT        3
-#define REQ_GARBAGE     4
+#define REQ_GARBAGE     -1
+#define REQ_PROGRESS    0
+#define REQ_VALID       1
+
+#define REQ_UPTIME      2
+#define REQ_LOAD        3
+#define REQ_EXIT        4
 
 void check_args(int argc, char **argv);
 int setup_socket(char *port);
@@ -50,5 +52,7 @@ void bind_socket(int sockfd, struct sockaddr *addr, int addrlen);
 void serve(int sockfd, int max_clients);
 void *worker(void *arg);
 int uptime();
-int parse_request(char *buffer, int last_byte);
+int parse_request(char *buffer, int buffer_size);
+int message_progress(char *buffer, const char *str, int buffer_size);
 void clean_buffer(char *buffer);
+int min(int arg1, int arg2);
