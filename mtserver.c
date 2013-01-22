@@ -144,8 +144,6 @@ void *worker(void *arg)
 
     while((rcv_result = recv(sockfd, (void *) buffer, BUF_LEN, RECV_FLAGS)))
     {
-        printf("Received: %s\n", buffer);
-
         buf_pos += rcv_result;
 
         int send_msg = 0;
@@ -155,8 +153,6 @@ void *worker(void *arg)
         for(i = 0; i < buf_pos; i++)
         {
             char ch = buffer[i];
-
-            printf("Looking at: %c\n", ch);
 
             if(ch == '\x03')
             {
@@ -318,29 +314,22 @@ void *worker(void *arg)
                         send_msg = 1;
                     }
                     break;
-
-                default:
-                    printf("\to_O\n");
-                    break;
             }
 
             if(send_msg)
             {
-                printf(":: Sending [%d]\n", (int) msg);
                 send(sockfd, &msg, RESPONSE_SIZE, SEND_FLAGS);
                 send_msg = 0;
             }
 
             if(state == REQ_EXIT)
             {
-                printf(":: Exiting [REQ_EXIT] -- closing socket\n");
                 close(sockfd);
                 return NULL;
             }
 
             if(mistakes > MAX_MISTAKES)
             {
-                printf(":: Exiting [MAX_MISTAKES] -- closing socket\n");
                 close(sockfd);
                 return NULL;
             }
@@ -350,83 +339,10 @@ void *worker(void *arg)
         buf_pos = 0;
     }
 
-    printf("[T%d] Closing connection\n", sockfd);
     close(sockfd);
     return NULL;
 }
 
-int parse_request(char *buffer, int buffer_size)
-{
-    int mistakes = 0;
-    int i;
-
-    for(i = 0; i < buffer_size; i++)
-    {
-        if(buffer[i] == 'u')
-        {
-            int result = message_progress(buffer + i,
-                "uptime",
-                buffer_size - i);
-
-            if(result == REQ_VALID)
-                return REQ_UPTIME;
-            else
-                return REQ_PROGRESS;
-        }
-        else if(buffer[i] == 'l')
-        {
-            int result = message_progress(buffer + i,
-                "load",
-                buffer_size - i);
-
-            if(result == REQ_VALID)
-                return REQ_LOAD;
-            else
-                return REQ_PROGRESS;
-        }
-        else if(buffer[i] == 'e')
-        {
-            int result = message_progress(buffer + i,
-                "exit",
-                buffer_size + i);
-
-            if(result == REQ_VALID)
-                return REQ_EXIT;
-            else
-                return REQ_PROGRESS;
-        }
-        else
-        {
-            mistakes++;
-        }
-
-        if(mistakes >= MAX_MISTAKES)
-        {
-            return REQ_GARBAGE2;
-        }
-    }
-
-    return REQ_GARBAGE;
-}
-
-int message_progress(char *buffer, const char *str, int buffer_size)
-{
-    int len = min(strlen(str), buffer_size);
-    int i;
-
-    for(i = 0; i < len; i++)
-    {
-        if(buffer[i] != str[i])
-            return (i * -1);
-    }
-
-    return (buffer_size == len) ? REQ_VALID : REQ_PROGRESS;
-}
-
-int min(int arg1, int arg2)
-{
-    return (arg1 < arg2) ? arg1 : arg2;
-}
 
 void clean_buffer(char *buffer)
 {

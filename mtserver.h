@@ -51,13 +51,6 @@
 #define REQ_EXIT_I      13
 #define REQ_EXIT_T      14
 
-#define REQ_VALID       0
-#define REQ_PROGRESS    1
-#define REQ_GARBAGE     2
-#define REQ_GARBAGE2    3
-#define REQ_UPTIME      4
-#define REQ_LOAD        5
-
 void check_args(int argc, char **argv);
 int setup_socket(char *port);
 void sock_hints_setup(struct addrinfo *hints,
