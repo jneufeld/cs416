@@ -30,14 +30,33 @@
 #define RESPONSE_SIZE   4
 #define MAX_MISTAKES    2
 
-#define REQ_GARBAGE2    -2
-#define REQ_GARBAGE     -1
-#define REQ_PROGRESS    0
-#define REQ_VALID       1
+#define CLIENT_ADD      1
+#define CLIENT_REMOVE   2
+#define CLIENT_QUERY    3
 
-#define REQ_UPTIME      2
-#define REQ_LOAD        3
-#define REQ_EXIT        4
+#define REQ_EXIT        -1
+#define REQ_NULL        0
+#define REQ_UPTIME_U    1
+#define REQ_UPTIME_P    2
+#define REQ_UPTIME_T    3
+#define REQ_UPTIME_I    4
+#define REQ_UPTIME_M    5
+#define REQ_UPTIME_E    6
+#define REQ_LOAD_L      7
+#define REQ_LOAD_O      8
+#define REQ_LOAD_A      9
+#define REQ_LOAD_D      10
+#define REQ_EXIT_E      11
+#define REQ_EXIT_X      12
+#define REQ_EXIT_I      13
+#define REQ_EXIT_T      14
+
+#define REQ_VALID       0
+#define REQ_PROGRESS    1
+#define REQ_GARBAGE     2
+#define REQ_GARBAGE2    3
+#define REQ_UPTIME      4
+#define REQ_LOAD        5
 
 void check_args(int argc, char **argv);
 int setup_socket(char *port);

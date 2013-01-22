@@ -117,8 +117,6 @@ void serve(int sockfd, int max_clients)
         pthread_t thread;
         pthread_create(&thread, NULL, &worker, &new_fd);
     }
-
-    printf("o_O\n");
 }
 
 int uptime()
@@ -138,81 +136,218 @@ void *worker(void *arg)
     int *arg_ptr = (int *) arg;
     int sockfd = *arg_ptr;
 
-    char buf[BUF_LEN];
-    char temp_buf[BUF_LEN];
+    char buffer[BUF_LEN];
     int buf_pos = 0;
     int mistakes = 0;
+    int state = REQ_NULL;
+    int rcv_result;
 
-    for(;;)
+    while((rcv_result = recv(sockfd, (void *) buffer, BUF_LEN, RECV_FLAGS)))
     {
-        int rcv_result = recv(sockfd, (void *) temp_buf, BUF_LEN, RECV_FLAGS);
+        printf("Received: %s\n", buffer);
 
-        if(rcv_result < 0)
-        {
-            printf("ERROR: T%d Received -1 bytes\n", sockfd);
-            exit(-1);
-        }
-
-        strncpy(buf + buf_pos, temp_buf, rcv_result);
         buf_pos += rcv_result;
-        printf("[T%d] Received: %s\n", sockfd, buf);
 
-        int request = parse_request(buf, buf_pos);
-
+        int send_msg = 0;
         void *msg = NULL;
-        if(request == REQ_UPTIME)
+
+        int i;
+        for(i = 0; i < buf_pos; i++)
         {
-            printf("[T%d] UPTIME\n", sockfd);
-            msg = (void *) uptime();
-            clean_buffer(buf);
-            clean_buffer(temp_buf);
-            buf_pos = 0;
-            mistakes = 0;
-        }
-        else if(request == REQ_LOAD)
-        {
-            printf("[T%d] LOAD\n", sockfd);
-            msg = (void *) load();
-            clean_buffer(buf);
-            clean_buffer(temp_buf);
-            buf_pos = 0;
-            mistakes = 0;
-        }
-        else if(request == REQ_EXIT)
-        {
-            printf("[T%d] EXIT 0\n", sockfd);
-            msg = (void *) 0;
-        }
-        else if(request == REQ_PROGRESS)
-        {
-            printf("[T%d] Potential valid request in progress\n", sockfd);
-        }
-        else if(request == REQ_GARBAGE)
-        {
-            mistakes++;
-            printf("[T%d] GARBAGE -1\n", sockfd);
-            msg = (void *) -1;
-            clean_buffer(buf);
-            clean_buffer(temp_buf);
-            buf_pos = 0;
-        }
-        else if(request == REQ_GARBAGE2)
-        {
-            printf("[T%d] GARBAGE2 -1\n", sockfd);
-            msg = (void *) -1;
-            send(sockfd, &msg, RESPONSE_SIZE, SEND_FLAGS);
-            mistakes = MAX_MISTAKES + 1;
+            char ch = buffer[i];
+
+            printf("Looking at: %c\n", ch);
+
+            if(ch == '\x03')
+            {
+                close(sockfd);
+                return NULL;
+            }
+
+            switch(state)
+            {
+                case REQ_NULL:
+                    if(ch == 'u')
+                        state = REQ_UPTIME_U;
+                    else if(ch == 'l')
+                        state = REQ_LOAD_L;
+                    else if(ch == 'e')
+                        state = REQ_EXIT_E;
+                    else
+                    {
+                        mistakes++;
+                        msg = (void *) -1;
+                        send_msg = 1;
+                    }
+                    break;
+
+                case REQ_UPTIME_U:
+                    if(ch == 'p')
+                        state = REQ_UPTIME_P;
+                    else
+                    {
+                        mistakes++;
+                        state = REQ_NULL;
+                        msg = (void *) -1;
+                        send_msg = 1;
+                    }
+                    break;
+                case REQ_UPTIME_P:
+                    if(ch == 't')
+                        state = REQ_UPTIME_T;
+                    else
+                    {
+                        mistakes++;
+                        state = REQ_NULL;
+                        msg = (void *) -1;
+                        send_msg = 1;
+                    }
+                    break;
+                case REQ_UPTIME_T:
+                    if(ch == 'i')
+                        state = REQ_UPTIME_I;
+                    else
+                    {
+                        mistakes++;
+                        state = REQ_NULL;
+                        msg = (void *) -1;
+                        send_msg = 1;
+                    }
+                    break;
+                case REQ_UPTIME_I:
+                    if(ch == 'm')
+                        state = REQ_UPTIME_M;
+                    else
+                    {
+                        mistakes++;
+                        state = REQ_NULL;
+                        msg = (void *) -1;
+                        send_msg = 1;
+                    }
+                    break;
+                case REQ_UPTIME_M:
+                    if(ch == 'e')
+                    {
+                        state = REQ_NULL;
+                        msg = (void *) uptime();
+                        send_msg = 1;
+                        mistakes = 0;
+                    }
+                    else
+                    {
+                        mistakes++;
+                        state = REQ_NULL;
+                        msg = (void *) -1;
+                        send_msg = 1;
+                    }
+                    break;
+
+                case REQ_LOAD_L:
+                    if(ch == 'o')
+                        state = REQ_LOAD_O;
+                    else
+                    {
+                        mistakes++;
+                        state = REQ_NULL;
+                        msg = (void *) -1;
+                        send_msg = 1;
+                    }
+                    break;
+                case REQ_LOAD_O:
+                    if(ch == 'a')
+                        state = REQ_LOAD_A;
+                    else
+                    {
+                        mistakes++;
+                        state = REQ_NULL;
+                        msg = (void *) -1;
+                        send_msg = 1;
+                    }
+                    break;
+                case REQ_LOAD_A:
+                    if(ch == 'd')
+                    {
+                        state = REQ_NULL;
+                        msg = (void *) load();
+                        send_msg = 1;
+                        mistakes = 0;
+                    }
+                    else
+                    {
+                        mistakes++;
+                        state = REQ_NULL;
+                        msg = (void *) -1;
+                        send_msg = 1;
+                    }
+                    break;
+
+                case REQ_EXIT_E:
+                    if(ch == 'x')
+                        state = REQ_EXIT_X;
+                    else
+                    {
+                        mistakes++;
+                        state = REQ_NULL;
+                        msg = (void *) -1;
+                        send_msg = 1;
+                    }
+                    break;
+                case REQ_EXIT_X:
+                    if(ch == 'i')
+                        state = REQ_EXIT_I;
+                    else
+                    {
+                        mistakes++;
+                        state = REQ_NULL;
+                        msg = (void *) -1;
+                        send_msg = 1;
+                    }
+                    break;
+                case REQ_EXIT_I:
+                    if(ch == 't')
+                    {
+                        state = REQ_EXIT;
+                        msg = (void *) 0;
+                        send_msg = 1;
+                    }
+                    else
+                    {
+                        mistakes++;
+                        state = REQ_NULL;
+                        msg = (void *) -1;
+                        send_msg = 1;
+                    }
+                    break;
+
+                default:
+                    printf("\to_O\n");
+                    break;
+            }
+
+            if(send_msg)
+            {
+                printf(":: Sending [%d]\n", (int) msg);
+                send(sockfd, &msg, RESPONSE_SIZE, SEND_FLAGS);
+                send_msg = 0;
+            }
+
+            if(state == REQ_EXIT)
+            {
+                printf(":: Exiting [REQ_EXIT] -- closing socket\n");
+                close(sockfd);
+                return NULL;
+            }
+
+            if(mistakes > MAX_MISTAKES)
+            {
+                printf(":: Exiting [MAX_MISTAKES] -- closing socket\n");
+                close(sockfd);
+                return NULL;
+            }
         }
 
-        send(sockfd, &msg, RESPONSE_SIZE, SEND_FLAGS);
-
-        if(request == REQ_EXIT || mistakes > MAX_MISTAKES)
-        {
-            printf("[T%d] Request was exit or received %d+ mistakes\n",
-                sockfd,
-                MAX_MISTAKES);
-            break;
-        }
+        clean_buffer(buffer);
+        buf_pos = 0;
     }
 
     printf("[T%d] Closing connection\n", sockfd);
@@ -282,7 +417,7 @@ int message_progress(char *buffer, const char *str, int buffer_size)
     for(i = 0; i < len; i++)
     {
         if(buffer[i] != str[i])
-            return REQ_GARBAGE;
+            return (i * -1);
     }
 
     return (buffer_size == len) ? REQ_VALID : REQ_PROGRESS;
