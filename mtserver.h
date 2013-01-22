@@ -30,7 +30,7 @@
 #define RESPONSE_SIZE   4
 #define MAX_MISTAKES    2
 
-#define CLIENT_ADD      1
+#define CLIENT_NEW      1
 #define CLIENT_REMOVE   2
 #define CLIENT_QUERY    3
 
@@ -65,7 +65,5 @@ void bind_socket(int sockfd, struct sockaddr *addr, int addrlen);
 void serve(int sockfd, int max_clients);
 void *worker(void *arg);
 int uptime();
-int parse_request(char *buffer, int buffer_size);
-int message_progress(char *buffer, const char *str, int buffer_size);
+int load(int request);
 void clean_buffer(char *buffer);
-int min(int arg1, int arg2);

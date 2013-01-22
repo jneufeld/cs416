@@ -114,8 +114,12 @@ void serve(int sockfd, int max_clients)
             (struct sockaddr *)&client_sock,
             &client_addr_sz);
 
-        pthread_t thread;
-        pthread_create(&thread, NULL, &worker, &new_fd);
+        if(load(CLIENT_QUERY) < max_clients)
+        {
+            load(CLIENT_NEW);
+            pthread_t thread;
+            pthread_create(&thread, NULL, &worker, &new_fd);
+        }
     }
 }
 
@@ -126,9 +130,16 @@ int uptime()
     return info.uptime;
 }
 
-int load()
+int load(int request)
 {
-    return 1;
+    static int clients = 0;
+
+    if(request == CLIENT_NEW)
+        clients++;
+    else if(request == CLIENT_REMOVE)
+        clients--;
+
+    return clients;
 }
 
 void *worker(void *arg)
@@ -264,7 +275,7 @@ void *worker(void *arg)
                     if(ch == 'd')
                     {
                         state = REQ_NULL;
-                        msg = (void *) load();
+                        msg = (void *) load(CLIENT_QUERY);
                         send_msg = 1;
                         mistakes = 0;
                     }
@@ -324,12 +335,14 @@ void *worker(void *arg)
 
             if(state == REQ_EXIT)
             {
+                load(CLIENT_REMOVE);
                 close(sockfd);
                 return NULL;
             }
 
             if(mistakes > MAX_MISTAKES)
             {
+                load(CLIENT_REMOVE);
                 close(sockfd);
                 return NULL;
             }
@@ -340,6 +353,7 @@ void *worker(void *arg)
     }
 
     close(sockfd);
+    load(CLIENT_REMOVE);
     return NULL;
 }
 
