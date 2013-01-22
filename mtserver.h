@@ -30,6 +30,7 @@
 #define RESPONSE_SIZE   4
 #define MAX_MISTAKES    2
 
+#define REQ_GARBAGE2    -2
 #define REQ_GARBAGE     -1
 #define REQ_PROGRESS    0
 #define REQ_VALID       1

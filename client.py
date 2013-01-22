@@ -105,7 +105,7 @@ else:
 # TEST 2: Robustness tests
 #
 # (1) send 3 garbage chars, expecting a close
-# (2) send another 3 garbage chars on the same socket as before, which should be closed
+# (2) send another 4 garbage chars on a new socket, which should be closed after only 3 get through
 # (3) send 1 garbage char, a valid "load", and 2 more garbage chars
 # (4) Test "control-C"
 # (5) Test buffer overrun
@@ -172,7 +172,29 @@ sock = new_sock()
 time.sleep(0.001)
 v = -2
 try:
-  sock.sendall("xyz")
+  sock.sendall("xyzz")
+  r = sock.recv(4)
+  if (r):
+    v = struct.unpack("i", r)[0]
+except:
+  print "TEST 2.2: first receive timed out"
+if v == -1:
+  print "TEST 2.2: OK... received first -1"
+else:
+  print "TEST 2.2: ERROR... didn't get -1 back for the 'x'"
+v = -2
+try:
+  r = sock.recv(4)
+  if (r):
+    v = struct.unpack("i", r)[0]
+except:
+  print "TEST 2.2: second receive timed out"
+if v == -1:
+  print "TEST 2.2: OK... received second -1"
+else:
+  print "TEST 2.2: ERROR... didn't get -1 back for the 'y'"
+v = -2
+try:
   r = sock.recv(4)
   if (r):
     v = struct.unpack("i", r)[0]

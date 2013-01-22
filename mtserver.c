@@ -195,47 +195,80 @@ void *worker(void *arg)
             clean_buffer(buf);
             clean_buffer(temp_buf);
             buf_pos = 0;
-            mistakes = 0;
+        }
+        else if(request == REQ_GARBAGE2)
+        {
+            printf("[T%d] GARBAGE2 -1\n", sockfd);
+            msg = (void *) -1;
+            send(sockfd, &msg, RESPONSE_SIZE, SEND_FLAGS);
+            mistakes = MAX_MISTAKES + 1;
         }
 
         send(sockfd, &msg, RESPONSE_SIZE, SEND_FLAGS);
 
-        if(request == REQ_EXIT || mistakes >= MAX_MISTAKES)
+        if(request == REQ_EXIT || mistakes > MAX_MISTAKES)
+        {
+            printf("[T%d] Request was exit or received %d+ mistakes\n",
+                sockfd,
+                MAX_MISTAKES);
             break;
+        }
     }
 
+    printf("[T%d] Closing connection\n", sockfd);
     close(sockfd);
     return NULL;
 }
 
 int parse_request(char *buffer, int buffer_size)
 {
-    if(buffer[0] == 'u')
-    {
-        int result = message_progress(buffer, "uptime", buffer_size);
+    int mistakes = 0;
+    int i;
 
-        if(result == REQ_VALID)
-            return REQ_UPTIME;
-        else
-            return REQ_PROGRESS;
-    }
-    else if(buffer[0] == 'l')
+    for(i = 0; i < buffer_size; i++)
     {
-        int result = message_progress(buffer, "load", buffer_size);
+        if(buffer[i] == 'u')
+        {
+            int result = message_progress(buffer + i,
+                "uptime",
+                buffer_size - i);
 
-        if(result == REQ_VALID)
-            return REQ_LOAD;
-        else
-            return REQ_PROGRESS;
-    }
-    else if(buffer[0] == 'e')
-    {
-        int result = message_progress(buffer, "exit", buffer_size);
+            if(result == REQ_VALID)
+                return REQ_UPTIME;
+            else
+                return REQ_PROGRESS;
+        }
+        else if(buffer[i] == 'l')
+        {
+            int result = message_progress(buffer + i,
+                "load",
+                buffer_size - i);
 
-        if(result == REQ_VALID)
-            return REQ_EXIT;
+            if(result == REQ_VALID)
+                return REQ_LOAD;
+            else
+                return REQ_PROGRESS;
+        }
+        else if(buffer[i] == 'e')
+        {
+            int result = message_progress(buffer + i,
+                "exit",
+                buffer_size + i);
+
+            if(result == REQ_VALID)
+                return REQ_EXIT;
+            else
+                return REQ_PROGRESS;
+        }
         else
-            return REQ_PROGRESS;
+        {
+            mistakes++;
+        }
+
+        if(mistakes >= MAX_MISTAKES)
+        {
+            return REQ_GARBAGE2;
+        }
     }
 
     return REQ_GARBAGE;
