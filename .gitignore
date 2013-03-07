@@ -17,7 +17,8 @@
 *.app
 
 # My Executables
-mtserver
+assignment1/mtserver
+assignment2/electleader
 
 # Vim craps
 *.swp
