@@ -23,10 +23,12 @@ int extract_pnum(char *pnum_arg);
  * Function prototypes for packing/unpacking messages.
  * -------------------------------------------------------------------------- */
 char *pack_elec(int id, int k, int d);
+char *pack_reply(int id, int k);
+int unpack_msg_num(char *msg, int start);
 int num_size(int num);
-int unpack_elec_id(char *msg);
-int unpack_elec_num(char *msg, int start);
 int unpack_elec_id(char *msg);
 int unpack_elec_k(char *msg);
 int unpack_elec_d(char *msg);
+int unpack_reply_id(char *msg);
+int unpack_reply_k(char *msg);
 

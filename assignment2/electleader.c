@@ -15,11 +15,6 @@ int main(int argc, char *argv[])
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
     int id = ((rank + 1) * pnum) % size;
-    char *send_msg = pack_elec(id, 0, 1);
-    printf("[PROC-%d] send_msg=%s\n", rank, send_msg);
-    printf("[PROC-%d] unpack_id=%d\n", rank, unpack_elec_id(send_msg));
-    printf("[PROC-%d] unpack_k=%d\n", rank, unpack_elec_k(send_msg));
-    printf("[PROC-%d] unpack_d=%d\n", rank, unpack_elec_d(send_msg));
 
     /* Send message left and right. */
     /*
@@ -186,7 +181,7 @@ char *pack_elec(int id, int k, int d)
 /*
  * Unpack and return a number from an election message.
  */
-int unpack_elec_num(char *msg, int start)
+int unpack_msg_num(char *msg, int start)
 {
     int result = 0;
     int end = start + 1;
@@ -217,7 +212,7 @@ int unpack_elec_num(char *msg, int start)
 int unpack_elec_id(char *msg)
 {
     int id_start = strlen("elec.");
-    return unpack_elec_num(msg, id_start);
+    return unpack_msg_num(msg, id_start);
 }
 
 
@@ -234,7 +229,7 @@ int unpack_elec_k(char *msg)
         k_start++;
     }
 
-    return unpack_elec_num(msg, k_start + 1);
+    return unpack_msg_num(msg, k_start + 1);
 }
 
 
@@ -258,7 +253,96 @@ int unpack_elec_d(char *msg)
         d_start++;
     }
 
-    return unpack_elec_num(msg, d_start + 1);
+    return unpack_msg_num(msg, d_start + 1);
+}
+
+
+/*
+ * Package a reply message.
+ */
+char *pack_reply(int id, int k)
+{
+    int id_size = num_size(id);
+    int k_size  = num_size(k);
+
+    int total_length = strlen("reply..") + id_size + k_size;
+    char *result = malloc((sizeof(char) * total_length) + 1);
+
+    result[0] = 'r';
+    result[1] = 'e';
+    result[2] = 'p';
+    result[3] = 'l';
+    result[4] = 'y';
+    result[5] = '.';
+
+    int location = strlen("reply.");
+    int pos = location + id_size - 1;
+
+    if(id == 0)
+    {
+        result[location++] = '0';
+    }
+    else
+    {
+        while(id > 0)
+        {
+            int digit = id % 10;
+            result[pos] = '0' + digit;
+            id /= 10;
+            location++;
+            pos--;
+        }
+    }
+
+    result[location++] = '.';
+
+    pos = location + k_size - 1;
+    if(k == 0)
+    {
+        result[location++] = '0';
+    }
+    else
+    {
+        while(k > 0)
+        {
+            int digit = k % 10;
+            result[pos] = '0' + digit;
+            k /= 10;
+            location++;
+            pos--;
+        }
+    }
+
+    result[location] = '\0';
+
+    return result;
+}
+
+
+/*
+ * Unpack and return the ID from a reply message.
+ */
+int unpack_reply_id(char *msg)
+{
+    int id_start = strlen("reply.");
+    return unpack_msg_num(msg, id_start);
+}
+
+
+/*
+ * Unpack and return the k value from a reply message.
+ */
+int unpack_reply_k(char *msg)
+{
+    int id_start = strlen("reply.");
+    int k_start  = id_start + 1;
+
+    while(msg[k_start] != '.')
+    {
+        k_start++;
+    }
+
+    return unpack_msg_num(msg, k_start + 1);
 }
 
 
