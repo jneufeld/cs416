@@ -31,4 +31,5 @@ int unpack_elec_k(char *msg);
 int unpack_elec_d(char *msg);
 int unpack_reply_id(char *msg);
 int unpack_reply_k(char *msg);
+void print_rcv_elec(int rank, char *msg, int id, int k, int d);
 

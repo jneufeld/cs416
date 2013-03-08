@@ -16,60 +16,80 @@ int main(int argc, char *argv[])
 
     int id = ((rank + 1) * pnum) % size;
 
-    /* Send message left and right. */
-    /*
-    char *right_msg = "Sent from right\n";
-    int right_len   = strlen(right_msg);
-    int right       = (rank + 1) % size;
-
+    /* Send initial election message. */
     char buffer[MSG_LEN];
     MPI_Status status;
 
+    char *right_msg = pack_elec(id, 0, 0);
+    int right_len   = strlen(right_msg) + 1;
+    int right       = (rank + 1) % size;
+
+    char *left_msg = pack_elec(id, 0, 0);
+    int left_len   = strlen(left_msg) + 1;
+    int left       = (rank + 1) % size;
+
     if(rank % 2)
     {
-        MPI_Send(right_msg,
-            right_len,
-            MPI_CHAR,
-            right,
-            MPI_TAG,
-            MPI_COMM_WORLD);
+        /* Send left and right. */
+        printf("[PROC-%d] Sending: msg(%s)\n", rank, right_msg);
+        MPI_Send(right_msg, right_len, MPI_CHAR, right, MPI_TAG, MPI_COMM_WORLD);
+        printf("[PROC-%d] Sending: msg(%s)\n", rank, left_msg);
+        MPI_Send(left_msg, left_len, MPI_CHAR, left, MPI_TAG, MPI_COMM_WORLD);
 
-        MPI_Recv(buffer,
-            MSG_LEN,
-            MPI_CHAR,
-            MPI_ANY_SOURCE,
-            MPI_TAG,
-            MPI_COMM_WORLD,
-            &status); 
+        /* Receive right. */
+        MPI_Recv(buffer, MSG_LEN, MPI_CHAR, MPI_ANY_SOURCE, MPI_TAG, MPI_COMM_WORLD, &status); 
 
-        printf("Received: %s\n", buffer);
+        int rcv_id = unpack_elec_id(buffer);
+        int rcv_k  = unpack_elec_k(buffer);
+        int rcv_d  = unpack_elec_d(buffer);
+        print_rcv_elec(rank, buffer, rcv_id, rcv_k, rcv_d);
+
+        /* Receive left. */
+        MPI_Recv(buffer, MSG_LEN, MPI_CHAR, MPI_ANY_SOURCE, MPI_TAG, MPI_COMM_WORLD, &status); 
+
+        rcv_id = unpack_elec_id(buffer);
+        rcv_k  = unpack_elec_k(buffer);
+        rcv_d  = unpack_elec_d(buffer);
+        print_rcv_elec(rank, buffer, rcv_id, rcv_k, rcv_d);
     }
     else
     {
-        MPI_Recv(buffer,
-            MSG_LEN,
-            MPI_CHAR,
-            MPI_ANY_SOURCE,
-            MPI_TAG,
-            MPI_COMM_WORLD,
-            &status); 
+        /* Receive right. */
+        MPI_Recv(buffer, MSG_LEN, MPI_CHAR, MPI_ANY_SOURCE, MPI_TAG, MPI_COMM_WORLD, &status); 
 
-        printf("Received: %s\n", buffer);
+        int rcv_id = unpack_elec_id(buffer);
+        int rcv_k  = unpack_elec_k(buffer);
+        int rcv_d  = unpack_elec_d(buffer);
+        print_rcv_elec(rank, buffer, rcv_id, rcv_k, rcv_d);
 
-        MPI_Send(right_msg,
-            right_len,
-            MPI_CHAR,
-            right,
-            MPI_TAG,
-            MPI_COMM_WORLD);
+        /* Receive left. */
+        MPI_Recv(buffer, MSG_LEN, MPI_CHAR, MPI_ANY_SOURCE, MPI_TAG, MPI_COMM_WORLD, &status); 
+
+        rcv_id = unpack_elec_id(buffer);
+        rcv_k  = unpack_elec_k(buffer);
+        rcv_d  = unpack_elec_d(buffer);
+        print_rcv_elec(rank, buffer, rcv_id, rcv_k, rcv_d);
+
+        /* Send left and right. */
+        printf("[PROC-%d] Sending: msg(%s)\n", rank, right_msg);
+        MPI_Send(right_msg, right_len, MPI_CHAR, right, MPI_TAG, MPI_COMM_WORLD);
+        printf("[PROC-%d] Sending: msg(%s)\n", rank, left_msg);
+        MPI_Send(left_msg, left_len, MPI_CHAR, left, MPI_TAG, MPI_COMM_WORLD);
     }
-    */
 
     /* Exit cleanly. */
     MPI_Finalize();
     return 0;
 }
 
+
+/*
+ * Debugging to print a received election message.
+ */
+void print_rcv_elec(int rank, char *msg, int id, int k, int d)
+{
+    printf("[PROC-%d] Received: msg(%s), id(%d), k(%d), d(%d)\n", rank, msg, id, k, d);
+}
 
 /*
  * Ensure arguments to program are valid. Exit if not given a single int.
@@ -186,14 +206,14 @@ int unpack_msg_num(char *msg, int start)
     int result = 0;
     int end = start + 1;
 
-    while(msg[end] != '.' && msg[end] != '\0')
+    while(msg[end] != '.' && msg[end] != '\0' && msg[end] != '\n')
     {
         end++;
     }
 
     int len = end - start;
 
-    while(msg[start] != '.' && msg[start] != '\0')
+    while(msg[start] != '.' && msg[start] != '\0' && msg[end] != '\n')
     {
         int digit = msg[start] - '0';
         digit = digit * pow(10, len - 1);
