@@ -20,6 +20,19 @@ void check_args(int num_args);
 int extract_pnum(char *pnum_arg);
 
 /* -----------------------------------------------------------------------------
+ * Function prototypes for the election.
+ * -------------------------------------------------------------------------- */
+void init_election(int size,
+    int rank,
+    int id,
+    int *rcv_id,
+    int *rcv_k,
+    int *rcv_d,
+    int *rcv_id2,
+    int *rcv_k2,
+    int *rcv_d2);
+
+/* -----------------------------------------------------------------------------
  * Function prototypes for packing/unpacking messages.
  * -------------------------------------------------------------------------- */
 char *pack_elec(int id, int k, int d);
