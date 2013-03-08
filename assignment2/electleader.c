@@ -1,3 +1,14 @@
+/*
+ * electleader.c
+ *
+ * CPSC 416 Assignment 1
+ * March 8, 2013
+ *
+ * Student Name: Jonathan Neufeld
+ * Student Number: 30671093
+ * CS ID: p9d8
+ */
+
 #include "electleader.h"
 
 /*
