@@ -21,8 +21,10 @@
 /* -----------------------------------------------------------------------------
  * Definitions.
  * -------------------------------------------------------------------------- */
-#define MPI_TAG 1234
-#define MSG_LEN 64
+#define MPI_TAG     1234
+#define MSG_LEN     64
+#define ELECTION    1
+#define REPLY       2
 
 /* -----------------------------------------------------------------------------
  * Function prototypes for general functions.
@@ -55,5 +57,7 @@ int unpack_elec_k(char *msg);
 int unpack_elec_d(char *msg);
 int unpack_reply_id(char *msg);
 int unpack_reply_k(char *msg);
-void print_rcv_elec(int rank, char *msg, int id, int k, int d);
+void print_rcv_elec(int rank, char *msg, int id, int k, int d, int sender);
+void print_rcv_reply(int rank, char *msg, int id, int k, int sender);
+int power(int k, int n);
 

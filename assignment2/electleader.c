@@ -30,102 +30,138 @@ int main(int argc, char *argv[])
     int idr, idl, kr, kl, dr, dl;
     init_election(size, rank, id, &idr, &idl, &kr, &kl, &dr, &dl); 
 
-    /* Receive election and reply messages. */
+    /* Receive initial election messages and respond. */
     char buffer[MSG_LEN];
-    MPI_Request request;
+    MPI_Status status;
     int right = (rank + 1) % size;
-    int left  = (rank - 1) % size;
+    int left  = (rank == 0) ? size - 1 : (rank - 1) % size;
 
-    if(rank % 2)
+    /* Handle right message. */
+    if(idr > id && dr < power(2, kr))
     {
-        /* Handle right message. */
-        if(idr > id && dr < pow(2, kr))
-        {
-            char *msg = pack_elec(idr, kr, dr + 1);
-            int len   = strlen(msg) + 1;
-            printf("[PROC-%d] Sending: msg(%s)\n", rank, msg);
-            MPI_Send(msg, len, MPI_CHAR, right, MPI_TAG, MPI_COMM_WORLD);
-        }
-        else if(idr > id && dr == pow(2, kr))
-        {
-            char *msg = pack_reply(idr, kr);
-            int len   = strlen(msg) + 1;
-            printf("[PROC-%d] Sending: msg(%s)\n", rank, msg);
-            MPI_Send(msg, len, MPI_CHAR, right, MPI_TAG, MPI_COMM_WORLD);
-        }
-        else if(idr == id)
-        {
-            printf("[PROC-%d] LEADER\n", rank);
-        }
-
-        MPI_Irecv(buffer, MSG_LEN, MPI_CHAR, MPI_ANY_SOURCE, MPI_TAG, MPI_COMM_WORLD, &request); 
-
-        /* Handle left message. */
-        if(idl > id && dl < pow(2, kl))
-        {
-            char *msg = pack_elec(idl, kl, dl + 1);
-            int len   = strlen(msg) + 1;
-            printf("[PROC-%d] Sending: msg(%s)\n", rank, msg);
-            MPI_Send(msg, len, MPI_CHAR, left, MPI_TAG, MPI_COMM_WORLD);
-        }
-        else if(idl > id && dl == pow(2, kl))
-        {
-            char *msg = pack_reply(idl, kl);
-            int len   = strlen(msg) + 1;
-            printf("[PROC-%d] Sending: msg(%s)\n", rank, msg);
-            MPI_Send(msg, len, MPI_CHAR, left, MPI_TAG, MPI_COMM_WORLD);
-        }
-        else if(idl == id)
-        {
-            printf("[PROC-%d] LEADER\n", rank);
-        }
-
-        MPI_Irecv(buffer, MSG_LEN, MPI_CHAR, MPI_ANY_SOURCE, MPI_TAG, MPI_COMM_WORLD, &request); 
+        char *msg = pack_elec(idr, kr, dr + 1);
+        int len   = strlen(msg) + 1;
+        printf("[PROC-%d] Sending: msg(%s), to(%d)\n", rank, msg, left);
+        MPI_Send(msg, len, MPI_CHAR, left, MPI_TAG, MPI_COMM_WORLD);
     }
-    else
+    else if(idr > id && dr == power(2, kr))
     {
-        MPI_Irecv(buffer, MSG_LEN, MPI_CHAR, MPI_ANY_SOURCE, MPI_TAG, MPI_COMM_WORLD, &request); 
+        char *msg = pack_reply(idr, kr);
+        int len   = strlen(msg) + 1;
+        printf("[PROC-%d] Sending: msg(%s), to(%d)\n", rank, msg, right);
+        MPI_Send(msg, len, MPI_CHAR, right, MPI_TAG, MPI_COMM_WORLD);
+    }
+    else if(idr == id)
+    {
+        printf("[PROC-%d] LEADER\n", rank);
+    }
 
-        /* Handle right message. */
-        if(idr > id && dr < pow(2, kr))
+    /* Handle left message. */
+    if(idl > id && dl < power(2, kl))
+    {
+        char *msg = pack_elec(idl, kl, dl + 1);
+        int len   = strlen(msg) + 1;
+        printf("[PROC-%d] Sending: msg(%s), to(%d)\n", rank, msg, right);
+        MPI_Send(msg, len, MPI_CHAR, right, MPI_TAG, MPI_COMM_WORLD);
+    }
+    else if(idl > id && dl == power(2, kl))
+    {
+        char *msg = pack_reply(idl, kl);
+        int len   = strlen(msg) + 1;
+        printf("[PROC-%d] Sending: msg(%s), to(%d)\n", rank, msg, left);
+        MPI_Send(msg, len, MPI_CHAR, left, MPI_TAG, MPI_COMM_WORLD);
+    }
+    else if(idl == id)
+    {
+        printf("[PROC-%d] LEADER\n", rank);
+    }
+
+    /* Big loop. */
+    int rcv_id, rcv_k, rcv_d, sender, target, msg_type;
+
+    while(1)
+    {
+        /* Receive message. */
+        MPI_Recv(buffer, MSG_LEN, MPI_CHAR, MPI_ANY_SOURCE, MPI_TAG, MPI_COMM_WORLD, &status);
+
+        /* Determine sender and message type. */
+        sender = (status.MPI_SOURCE == left) ? left : right;
+
+        if(buffer[0] == 'e')
         {
-            char *msg = pack_elec(idr, kr, dr + 1);
-            int len   = strlen(msg) + 1;
-            printf("[PROC-%d] Sending: msg(%s)\n", rank, msg);
-            MPI_Send(msg, len, MPI_CHAR, right, MPI_TAG, MPI_COMM_WORLD);
+            msg_type = ELECTION;
+            rcv_id = unpack_elec_id(buffer);
+            rcv_k  = unpack_elec_k(buffer);
+            rcv_d  = unpack_elec_d(buffer);
+            print_rcv_elec(rank, buffer, rcv_id, rcv_k, rcv_d, sender);
         }
-        else if(idr > id && dr == pow(2, kr))
+        else if(buffer[0] == 'r')
         {
-            char *msg = pack_reply(idr, kr);
-            int len   = strlen(msg) + 1;
-            printf("[PROC-%d] Sending: msg(%s)\n", rank, msg);
-            MPI_Send(msg, len, MPI_CHAR, right, MPI_TAG, MPI_COMM_WORLD);
-        }
-        else if(idr == id)
-        {
-            printf("[PROC-%d] LEADER\n", rank);
+            msg_type = REPLY;
+            rcv_id   = unpack_reply_id(buffer);
+            rcv_k    = unpack_reply_k(buffer);
+            print_rcv_reply(rank, buffer, rcv_id, rcv_k, sender);
         }
 
-        MPI_Irecv(buffer, MSG_LEN, MPI_CHAR, MPI_ANY_SOURCE, MPI_TAG, MPI_COMM_WORLD, &request); 
+        /* Respond to an ELECTION message. */
+        if(msg_type == ELECTION)
+        {
+            printf("[PROC-%d] rcv_id(%d), id(%d), power(2, rcv_k)=%d\n", rank, rcv_id, id, power(2, rcv_k));
+            if(rcv_id > id && rcv_d < power(2, rcv_k))
+            {
+                char *msg = pack_elec(rcv_id, rcv_k, rcv_d + 1);
+                int len   = strlen(msg) + 1;
+                target = (sender == left) ? right : left;
+                printf("[PROC-%d] Sending: msg(%s), to(%d)\n", rank, msg, target);
+                MPI_Send(msg, len, MPI_CHAR, target, MPI_TAG, MPI_COMM_WORLD);
+            }
+            else if(rcv_id > id && rcv_d == power(2, rcv_k))
+            {
+                char *msg = pack_reply(rcv_id, rcv_k);
+                int len   = strlen(msg) + 1;
+                target = (sender == left) ? left : right;
+                printf("[PROC-%d] Sending: msg(%s), to(%d)\n", rank, msg, target);
+                MPI_Send(msg, len, MPI_CHAR, target, MPI_TAG, MPI_COMM_WORLD);
+            }
+            else if(rcv_id == id)
+            {
+                printf("[PROC-%d] LEADER\n", rank);
 
-        /* Handle left message. */
-        if(idl > id && dl < pow(2, kl))
-        {
-            char *msg = pack_elec(idl, kl, dl + 1);
-            int len   = strlen(msg) + 1;
-            printf("[PROC-%d] Sending: msg(%s)\n", rank, msg);
-            MPI_Send(msg, len, MPI_CHAR, left, MPI_TAG, MPI_COMM_WORLD);
+                //char *msg = pack_elec(id, rcv_k + 1, 1);
+                //int len   = strlen(msg) + 1;
+
+                //printf("[PROC-%d] Sending: msg(%s), to(%d)\n", rank, msg, right);
+                //MPI_Send(msg, len, MPI_CHAR, right, MPI_TAG, MPI_COMM_WORLD);
+
+                //printf("[PROC-%d] Sending: msg(%s), to(%d)\n", rank, msg, left);
+                //MPI_Send(msg, len, MPI_CHAR, left, MPI_TAG, MPI_COMM_WORLD);
+            }
         }
-        else if(idl > id && dl == pow(2, kl))
+
+        /* Respond to a REPLY message. */
+        if(msg_type == REPLY)
         {
-            char *msg = pack_reply(idl, kl);
-            int len   = strlen(msg) + 1;
-            printf("[PROC-%d] Sending: msg(%s)\n", rank, msg);
-            MPI_Send(msg, len, MPI_CHAR, left, MPI_TAG, MPI_COMM_WORLD);
-        }
-        else if(idl == id)
-        {
-            printf("[PROC-%d] LEADER\n", rank);
+            if(rcv_id != id)
+            {
+                char *msg = pack_reply(rcv_id, rcv_k);
+                int len   = strlen(msg) + 1;
+                target = (sender == left) ? right : left;
+                printf("[PROC-%d] Sending: msg(%s), to(%d)\n", rank, msg, target);
+                MPI_Send(msg, len, MPI_CHAR, target, MPI_TAG, MPI_COMM_WORLD);
+            }
+            else
+            {
+                printf("ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZzR\n");
+
+                char *msg = pack_elec(id, rcv_k + 1, 1);
+                int len   = strlen(msg) + 1;
+
+                printf("[PROC-%d] Sending: msg(%s), to(%d)\n", rank, msg, right);
+                MPI_Send(msg, len, MPI_CHAR, right, MPI_TAG, MPI_COMM_WORLD);
+
+                printf("[PROC-%d] Sending: msg(%s), to(%d)\n", rank, msg, left);
+                MPI_Send(msg, len, MPI_CHAR, left, MPI_TAG, MPI_COMM_WORLD);
+            }
         }
     }
 
@@ -158,13 +194,13 @@ void init_election(int size,
 
     char *left_msg = pack_elec(id, 0, 0);
     int left_len   = strlen(left_msg) + 1;
-    int left       = (rank + 1) % size;
+    int left       = (rank == 0) ? size - 1 : (rank - 1) % size;
 
     /* Half the processes need to send before they receive. */
     if(rank % 2)
     {
         /* Send and receive right. */
-        printf("[PROC-%d] Sending: msg(%s)\n", rank, right_msg);
+        printf("[PROC-%d] Sending: msg(%s), to(%d)\n", rank, right_msg, right);
         MPI_Send(right_msg, right_len, MPI_CHAR, right, MPI_TAG, MPI_COMM_WORLD);
 
         MPI_Recv(buffer, MSG_LEN, MPI_CHAR, MPI_ANY_SOURCE, MPI_TAG, MPI_COMM_WORLD, &status); 
@@ -172,10 +208,10 @@ void init_election(int size,
         *idr = unpack_elec_id(buffer);
         *kr  = unpack_elec_k(buffer);
         *dr  = unpack_elec_d(buffer);
-        print_rcv_elec(rank, buffer, *idr, *kr, *dr);
+        print_rcv_elec(rank, buffer, *idr, *kr, *dr, status.MPI_SOURCE);
 
         /* Send and receive left. */
-        printf("[PROC-%d] Sending: msg(%s)\n", rank, left_msg);
+        printf("[PROC-%d] Sending: msg(%s), to(%d)\n", rank, left_msg, left);
         MPI_Send(left_msg, left_len, MPI_CHAR, left, MPI_TAG, MPI_COMM_WORLD);
 
         MPI_Recv(buffer, MSG_LEN, MPI_CHAR, MPI_ANY_SOURCE, MPI_TAG, MPI_COMM_WORLD, &status); 
@@ -183,7 +219,7 @@ void init_election(int size,
         *idl = unpack_elec_id(buffer);
         *kl  = unpack_elec_k(buffer);
         *dl  = unpack_elec_d(buffer);
-        print_rcv_elec(rank, buffer, *idl, *kl, *dl);
+        print_rcv_elec(rank, buffer, *idl, *kl, *dl, status.MPI_SOURCE);
     }
 
     /* Half the processes need to receive before they send. */
@@ -195,9 +231,9 @@ void init_election(int size,
         *idr = unpack_elec_id(buffer);
         *kr  = unpack_elec_k(buffer);
         *dr  = unpack_elec_d(buffer);
-        print_rcv_elec(rank, buffer, *idr, *kr, *dr);
+        print_rcv_elec(rank, buffer, *idr, *kr, *dr, status.MPI_SOURCE);
 
-        printf("[PROC-%d] Sending: msg(%s)\n", rank, right_msg);
+        printf("[PROC-%d] Sending: msg(%s), to(%d)\n", rank, right_msg, right);
         MPI_Send(right_msg, right_len, MPI_CHAR, right, MPI_TAG, MPI_COMM_WORLD);
 
         /* Recieve and send left. */
@@ -206,9 +242,9 @@ void init_election(int size,
         *idl = unpack_elec_id(buffer);
         *kl  = unpack_elec_k(buffer);
         *dl  = unpack_elec_d(buffer);
-        print_rcv_elec(rank, buffer, *idl, *kl, *dl);
+        print_rcv_elec(rank, buffer, *idl, *kl, *dl, status.MPI_SOURCE);
 
-        printf("[PROC-%d] Sending: msg(%s)\n", rank, left_msg);
+        printf("[PROC-%d] Sending: msg(%s), to(%d)\n", rank, left_msg, left);
         MPI_Send(left_msg, left_len, MPI_CHAR, left, MPI_TAG, MPI_COMM_WORLD);
     }
 }
@@ -217,10 +253,20 @@ void init_election(int size,
 /*
  * Debugging to print a received election message.
  */
-void print_rcv_elec(int rank, char *msg, int id, int k, int d)
+void print_rcv_elec(int rank, char *msg, int id, int k, int d, int sender)
 {
-    printf("[PROC-%d] Received: msg(%s), id(%d), k(%d), d(%d)\n", rank, msg, id, k, d);
+    printf("[PROC-%d] Received: msg(%s), id(%d), k(%d), d(%d), from rank(%d)\n", rank, msg, id, k, d, sender);
 }
+
+
+/*
+ * Debugging to print a received reply message.
+ */
+void print_rcv_reply(int rank, char *msg, int id, int k, int sender)
+{
+    printf("[PROC-%d] Received: msg(%s), id(%d), k(%d), from rank(%d)\n", rank, msg, id, k, sender);
+}
+
 
 /*
  * Ensure arguments to program are valid. Exit if not given a single int.
@@ -347,7 +393,7 @@ int unpack_msg_num(char *msg, int start)
     while(msg[start] != '.' && msg[start] != '\0' && msg[end] != '\n')
     {
         int digit = msg[start] - '0';
-        digit = digit * pow(10, len - 1);
+        digit = digit * power(10, len - 1);
         result += digit;
         start++;
         len--;
@@ -518,4 +564,28 @@ int num_size(int num)
     }
 
     return size;
+}
+
+
+/*
+ * Raise k to the nth power and return an int.
+ */
+int power(int k, int n)
+{
+    int result = k;
+
+    if(n == 0)
+    {
+        result = 1;
+    }
+    else
+    {
+        int i;
+        for(i = 0; i <= n; i++)
+        {
+            result *= k;
+        }
+    }
+
+    return result;
 }
